@@ -43,26 +43,23 @@ def needs_conversion(raw_file_path):
     return needs_conversion
 
 
-def has_library_entry(raw_file_path):
-    """Check whether given file is already linked to library"""
-    has_library_entry = False
+def find_library_dataset(raw_file_path):
+    """Check whether given file is already linked to library, return the dataset if found."""
+    library_dataset = None
     raw_dir, raw_file = os.path.split(raw_file_path)
     for folder in library_folders:
         if raw_dir == folder["name"].lstrip("/"):
             # Checking for file name equality only, warning: libraries allow name duplicates
             folder_detail = gi.folders.show_folder(folder_id=folder["id"], contents=True)
-            if raw_file in [item["name"] for item in folder_detail["folder_contents"]]:
-                log.debug("Found name identity")
-                has_library_entry = True
-            break
-    return has_library_entry
+            for item in folder_detail["folder_contents"]:
+                if raw_file == item["name"]:
+                    log.debug("Found name identity")
+                    library_dataset = item
+                    break
+    return library_dataset
 
 
 def run_conversion_workflow():
-    pass
-
-
-def ensure_folders_exist():
     pass
 
 
@@ -89,7 +86,8 @@ def link_to_data_library(raw_file_path):
     remote_folder = gi.libraries.get_folders(library_id=LIBRARY_ID, folder_id=parent_folder_id)
     filesystem_path = raw_file_path
     filesystem_path = os.path.join(SALLY_PATH_PREFIX, filesystem_path)
-    gi.libraries.upload_from_galaxy_filesystem(library_id=LIBRARY_ID, filesystem_paths=filesystem_path, folder_id=parent_folder_id, file_type="thermo.raw", link_data_only="link_to_files")
+    ld = gi.libraries.upload_from_galaxy_filesystem(library_id=LIBRARY_ID, filesystem_paths=filesystem_path, folder_id=parent_folder_id, file_type="thermo.raw", link_data_only="link_to_files")
+    return ld
 
 
 def is_allowed_path(raw_file_path):
@@ -112,12 +110,13 @@ def main():
                 continue
             if needs_conversion(raw_file_path):
                 log.info("Dataset needs conversion.")
-                if has_library_entry(raw_file_path):
+                library_dataset = find_library_dataset(raw_file_path)
+                if library_dataset:
                     log.info("Dataset has a corresponding library entry")
                     # time to trigger conversion workflow
                 else:
                     log.info("Importing dataset to library.")
-                    link_to_data_library(raw_file_path)
+                    library_dataset = link_to_data_library(raw_file_path)
                     # time to trigger conversion workflow
             else:
                 # File is already converted. One tea please.
