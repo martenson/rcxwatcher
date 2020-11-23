@@ -123,11 +123,11 @@ def main():
                 library_dataset = find_library_dataset(raw_file_path)
                 if library_dataset:
                     log.info("Dataset has a corresponding library entry")
-                    # time to trigger conversion workflow
+                    run_conversion_workflow(library_dataset, raw_file_path)
                 else:
                     log.info("Importing dataset to library.")
                     library_dataset = link_to_data_library(raw_file_path)
-                    # time to trigger conversion workflow
+                    run_conversion_workflow(library_dataset, raw_file_path)
             else:
                 # File is already converted. One tea please.
                 pass
