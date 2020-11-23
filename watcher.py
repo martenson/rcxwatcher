@@ -59,8 +59,18 @@ def find_library_dataset(raw_file_path):
     return library_dataset
 
 
-def run_conversion_workflow():
-    pass
+def run_conversion_workflow(library_dataset, raw_file_path):
+    #WORKFLOW_ID = create a workflow in galaxy
+    workflow = galaxy.workflows.WorkflowClient(gi)
+    raw_dir, raw_file = os.path.split(raw_file_path)
+    profile_dir = os.path.split(raw_dir)[0]
+    raw_file_id = library_dataset["id"]
+    workflow.invoke_workflow(workflow_id=WORKFLOW_ID, 
+        inputs={'0': {'id': raw_file_id, 'src': 'ld'}},
+        params={'2': {'export_dir': profile_dir}})
+        #can create a dedicated history so we don't get a new one each time the workflow is run
+    
+    #then clear up the history
 
 
 def link_to_data_library(raw_file_path):
