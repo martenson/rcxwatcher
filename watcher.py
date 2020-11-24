@@ -24,6 +24,8 @@ LIBRARY_NAME = "rcx-da"
 LIBRARY_ROOT_FOLDER_ID = "F2f94e8ae9edff68a"
 ALLOWED_MZML_FOLDER_NAMES = ["mzML_profile", "mzML", "mzml"]
 ALLOWED_RAW_FILES_FOLDER_NAMES = ["RAW_profile", "RAW", "raw"]
+CONVERSION_WORKFLOW_ID = "46456"
+PATH_PREFIX = "000020-Shares/rcx-da"
 
 gi = galaxy.GalaxyInstance(url=args.galaxy_url, key=args.apikey)
 library_folders = gi.libraries.get_folders(library_id=LIBRARY_ID)
@@ -60,17 +62,16 @@ def find_library_dataset(raw_file_path):
 
 
 def run_conversion_workflow(library_dataset, raw_file_path):
-    #WORKFLOW_ID = create a workflow in galaxy
-    workflow = galaxy.workflows.WorkflowClient(gi)
     raw_dir, raw_file = os.path.split(raw_file_path)
-    profile_dir = os.path.split(raw_dir)[0]
-    raw_file_id = library_dataset["id"]
-    workflow.invoke_workflow(workflow_id=WORKFLOW_ID, 
-        inputs={'0': {'id': raw_file_id, 'src': 'ld'}},
-        params={'2': {'export_dir': profile_dir}})
-        #can create a dedicated history so we don't get a new one each time the workflow is run
-    
-    #then clear up the history
+    export_dir = os.path.join(PATH_PREFIX, os.path.split(raw_dir)[0])
+    wf_inputs={'0': {'id': library_dataset["id"], 'src': 'ld'}}
+    wf_params = {'2': {'export_dir': export_dir}}
+    log.info(wf_params)
+    invocation = gi.workflows.invoke_workflow(workflow_id=CONVERSION_WORKFLOW_ID,
+        inputs=wf_inputs,
+        params=wf_params,
+        history_name=library_dataset["name"])
+    return invocation
 
 
 def link_to_data_library(raw_file_path):
@@ -122,12 +123,13 @@ def main():
                 log.info("Dataset needs conversion.")
                 library_dataset = find_library_dataset(raw_file_path)
                 if library_dataset:
-                    log.info("Dataset has a corresponding library entry")
-                    run_conversion_workflow(library_dataset, raw_file_path)
+                    log.info("Invoking a conversion workflow.")
+                    invocation = run_conversion_workflow(library_dataset, raw_file_path)
                 else:
                     log.info("Importing dataset to library.")
                     library_dataset = link_to_data_library(raw_file_path)
-                    run_conversion_workflow(library_dataset, raw_file_path)
+                    log.info("Invoking a conversion workflow.")
+                    invocation = run_conversion_workflow(library_dataset, raw_file_path)
             else:
                 # File is already converted. One tea please.
                 pass
