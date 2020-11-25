@@ -58,7 +58,6 @@ def find_library_dataset(raw_file_path):
             folder_detail = gi.folders.show_folder(folder_id=folder["id"], contents=True)
             for item in folder_detail["folder_contents"]:
                 if raw_file == item["name"]:
-                    log.debug("Found name identity")
                     library_dataset = item
                     break
     return library_dataset
@@ -69,7 +68,6 @@ def run_conversion_workflow(library_dataset, raw_file_path):
     export_dir = os.path.join(PATH_PREFIX, os.path.split(raw_dir)[0])
     wf_inputs={'0': {'id': library_dataset["id"], 'src': 'ld'}}
     wf_params = {'2': {'export_dir': export_dir}}
-    log.info(wf_params)
     invocation = gi.workflows.invoke_workflow(workflow_id=CONVERSION_WORKFLOW_ID,
         inputs=wf_inputs,
         params=wf_params,
@@ -100,8 +98,8 @@ def link_to_data_library(raw_file_path):
     remote_folder = gi.libraries.get_folders(library_id=LIBRARY_ID, folder_id=parent_folder_id)
     filesystem_path = raw_file_path
     filesystem_path = os.path.join(SALLY_PATH_PREFIX, filesystem_path)
-    ld = gi.libraries.upload_from_galaxy_filesystem(library_id=LIBRARY_ID, filesystem_paths=filesystem_path, folder_id=parent_folder_id, file_type="thermo.raw", link_data_only="link_to_files")
-    return ld
+    response = gi.libraries.upload_from_galaxy_filesystem(library_id=LIBRARY_ID, filesystem_paths=filesystem_path, folder_id=parent_folder_id, file_type="thermo.raw", link_data_only="link_to_files")
+    return response[0]
 
 
 def is_allowed_path(raw_file_path):
