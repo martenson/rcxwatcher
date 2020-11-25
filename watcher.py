@@ -34,7 +34,6 @@ library_folders = gi.libraries.get_folders(library_id=LIBRARY_ID)
 
 
 def needs_conversion(raw_file_path):
-    log.info("raw_file_path: "+raw_file_path)
     """Check whether given raw file is already converted"""
     needs_conversion = True
     raw_dir, raw_file = os.path.split(raw_file_path)
