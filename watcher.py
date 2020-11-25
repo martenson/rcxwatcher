@@ -3,6 +3,8 @@
 import argparse
 import os
 import logging as log
+from random import random
+from time import sleep
 from bioblend import galaxy
 
 # find . -type f -name "*.raw"
@@ -24,7 +26,7 @@ LIBRARY_NAME = "rcx-da"
 LIBRARY_ROOT_FOLDER_ID = "F2f94e8ae9edff68a"
 ALLOWED_MZML_FOLDER_NAMES = ["mzML_profile", "mzML", "mzml"]
 ALLOWED_RAW_FILES_FOLDER_NAMES = ["RAW_profile", "RAW", "raw"]
-CONVERSION_WORKFLOW_ID = "46456"
+CONVERSION_WORKFLOW_ID = "13cea0e6d733b865"
 PATH_PREFIX = "000020-Shares/rcx-da"
 
 gi = galaxy.GalaxyInstance(url=args.galaxy_url, key=args.apikey)
@@ -32,16 +34,18 @@ library_folders = gi.libraries.get_folders(library_id=LIBRARY_ID)
 
 
 def needs_conversion(raw_file_path):
+    log.info("raw_file_path: "+raw_file_path)
     """Check whether given raw file is already converted"""
     needs_conversion = True
     raw_dir, raw_file = os.path.split(raw_file_path)
     profile_dir = os.path.split(raw_dir)[0]
     for allowed_name in ALLOWED_MZML_FOLDER_NAMES:
-        mzml_dir = os.path.join(profile_dir, allowed_name)
+        mzml_dir = os.path.join(SALLY_PATH_PREFIX, os.path.join(profile_dir, allowed_name))
         mzml_file = os.path.join(mzml_dir, raw_file.replace("raw", "mzml"))
         # We could check the size for more reliability
         if os.path.exists(mzml_file):
             needs_conversion = False
+            break
     return needs_conversion
 
 
@@ -70,7 +74,7 @@ def run_conversion_workflow(library_dataset, raw_file_path):
     invocation = gi.workflows.invoke_workflow(workflow_id=CONVERSION_WORKFLOW_ID,
         inputs=wf_inputs,
         params=wf_params,
-        history_name=library_dataset["name"])
+        history_name=f"conversion of {library_dataset['name']}")
     return invocation
 
 
@@ -130,6 +134,7 @@ def main():
                     library_dataset = link_to_data_library(raw_file_path)
                     log.info("Invoking a conversion workflow.")
                     invocation = run_conversion_workflow(library_dataset, raw_file_path)
+                sleep(random())  # Give Galaxy some time to cope since many calls above are async.
             else:
                 # File is already converted. One tea please.
                 pass
