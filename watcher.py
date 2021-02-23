@@ -27,7 +27,7 @@ EXPORT_PATH_PREFIX = "/mnt/sally/000020-Shares/rcx-da/"
 LIBRARY_ID = "0a248a1f62a0cc04"
 LIBRARY_NAME = "rcx-da"
 LIBRARY_ROOT_FOLDER_ID = "F2f94e8ae9edff68a"
-ALLOWED_MZML_FOLDER_NAMES = ["mzML_profile", "mzML", "mzml"]
+ALLOWED_MZML_FOLDER_NAMES = ["mzML_profile"]
 ALLOWED_RAW_FILES_FOLDER_NAMES = ["RAW_profile", "RAW", "raw"]
 CONVERSION_WORKFLOW_ID = "13cea0e6d733b865"
 
@@ -66,9 +66,9 @@ def get_library_dataset(file_path):
 
 def run_conversion_workflow(library_dataset, raw_file_path):
     raw_dir, raw_file = os.path.split(raw_file_path)
-    export_dir = os.path.join(EXPORT_PATH_PREFIX, os.path.split(raw_dir)[0])
+    remote_path = os.path.join(EXPORT_PATH_PREFIX, os.path.split(raw_dir)[0], ALLOWED_MZML_FOLDER_NAMES[0], f"{raw_file[:-4]}.mzml")
     wf_inputs = {'0': {'id': library_dataset["id"], 'src': 'ld'}}
-    wf_params = {'2': {'export_dir': export_dir}}
+    wf_params = {'2': {'remote_path': remote_path}}
     invocation = gi.workflows.invoke_workflow(workflow_id=CONVERSION_WORKFLOW_ID,
                                               inputs=wf_inputs,
                                               params=wf_params,
