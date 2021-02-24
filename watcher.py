@@ -27,26 +27,25 @@ EXPORT_PATH_PREFIX = "/mnt/sally/000020-Shares/rcx-da/"
 LIBRARY_ID = "0a248a1f62a0cc04"
 LIBRARY_NAME = "rcx-da"
 LIBRARY_ROOT_FOLDER_ID = "F2f94e8ae9edff68a"
-ALLOWED_MZML_FOLDER_NAMES = ["mzML_profile"]
+MZML_FOLDER_NAME = "mzML_profile"
 ALLOWED_RAW_FILES_FOLDER_NAMES = ["RAW_profile", "RAW", "raw"]
 CONVERSION_WORKFLOW_ID = "13cea0e6d733b865"
+THERMO_FILE_TYPE = "thermo.raw"
+MZML_FILE_TYPE = "mzml"
+JSON_FILE_TYPE = "json"
+TXT_FILE_TYPE = "txt"
 
 gi = galaxy.GalaxyInstance(url=args.galaxy_url, key=args.apikey)
 library_folders = gi.libraries.get_folders(library_id=LIBRARY_ID)
 
 
-def needs_conversion(raw_file_path):
+def is_converted(raw_file_path):
     """Check whether given raw file has already been converted."""
-    needs_conversion = True
-    raw_dir, raw_file = os.path.split(raw_file_path)
-    profile_dir = os.path.split(raw_dir)[0]
-    for allowed_name in ALLOWED_MZML_FOLDER_NAMES:
-        mzml_dir = os.path.join(EXPORT_PATH_PREFIX, os.path.join(profile_dir, allowed_name))
-        mzml_file = os.path.join(mzml_dir, f"{raw_file[:-4]}.mzml")
-        if os.path.exists(mzml_file):
-            needs_conversion = False
-            break
-    return needs_conversion
+    is_converted = False
+    mzml_file = get_mzml_path(raw_file_path)
+    if os.path.exists(mzml_file):
+        is_converted = True
+    return is_converted
 
 
 def get_library_dataset(file_path):
@@ -64,9 +63,14 @@ def get_library_dataset(file_path):
     return library_dataset
 
 
-def run_conversion_workflow(library_dataset, raw_file_path):
+def get_mzml_path(raw_file_path):
+    """Return the mzml path corresponding to the given .RAW path."""
     raw_dir, raw_file = os.path.split(raw_file_path)
-    remote_path = os.path.join(EXPORT_PATH_PREFIX, os.path.split(raw_dir)[0], ALLOWED_MZML_FOLDER_NAMES[0], f"{raw_file[:-4]}.mzml")
+    return os.path.join(EXPORT_PATH_PREFIX, os.path.split(raw_dir)[0], MZML_FOLDER_NAME, f"{raw_file[:-4]}.mzml")
+
+
+def run_conversion_workflow(library_dataset, raw_file_path):
+    remote_path = get_mzml_path(raw_file_path)
     wf_inputs = {'0': {'id': library_dataset["id"], 'src': 'ld'}}
     wf_params = {'2': {'remote_path': remote_path}}
     invocation = gi.workflows.invoke_workflow(workflow_id=CONVERSION_WORKFLOW_ID,
@@ -76,9 +80,9 @@ def run_conversion_workflow(library_dataset, raw_file_path):
     return invocation
 
 
-def link_to_data_library(raw_file_path, file_type="thermo.raw"):
-    raw_dir, raw_file = os.path.split(raw_file_path)
-    path = os.path.normpath(raw_dir)
+def link_to_data_library(given_file_path, file_type):
+    file_dir, _ = os.path.split(given_file_path)
+    path = os.path.normpath(file_dir)
     folders = path.split(os.sep)
     # ['H2020_HBM4EU', '2020', 'WP16_Specimen', 'HBM4EU_ESI_negative_WP_urine_MS1', 'HBM4EU_Fieldwork_1_Batch_1-20201005-CMV', 'RAW_profile']
     parent_folder_id = LIBRARY_ROOT_FOLDER_ID
@@ -97,8 +101,7 @@ def link_to_data_library(raw_file_path, file_type="thermo.raw"):
             # Folder already exists, moving down
             parent_folder_id = remote_folder[0]["id"]
     remote_folder = gi.libraries.get_folders(library_id=LIBRARY_ID, folder_id=parent_folder_id)
-    filesystem_path = raw_file_path
-    filesystem_path = os.path.join(EXPORT_PATH_PREFIX, filesystem_path)
+    filesystem_path = os.path.join(EXPORT_PATH_PREFIX, given_file_path)
     response = gi.libraries.upload_from_galaxy_filesystem(library_id=LIBRARY_ID, filesystem_paths=filesystem_path, folder_id=parent_folder_id, file_type=file_type, link_data_only="link_to_files")
     return response[0]
 
@@ -117,17 +120,11 @@ def is_allowed_raw_path(raw_file_path):
     return is_allowed
 
 
-# def is_conversion_linked(raw_file_path):
-#     mzml_dataset = get_library_dataset(raw_file_path)
-#     json_dataset = get_library_dataset(raw_file_path)
-#     txt_dataset = get_library_dataset(raw_file_path)
-
-
-def establish_library_link(file_path):
+def ensure_library_link(file_path, file_type):
     library_dataset = get_library_dataset(file_path)
     if not library_dataset:
-        log.info("Importing dataset to library.")
-        library_dataset = link_to_data_library(file_path)
+        log.info(f"Importing {file_path} dataset to library.")
+        library_dataset = link_to_data_library(file_path, file_type)
     return library_dataset
 
 
@@ -140,20 +137,24 @@ def main():
                 log.error(f"Skipping a line from the input. Found an illegal path: {raw_file_path}")
                 continue
             if args.import_raw_only:
-                establish_library_link(raw_file_path)
+                ensure_library_link(raw_file_path, THERMO_FILE_TYPE)
             elif args.import_results_only:
-                #  TODO
-                #  check for presence of the mzml/json/txt files
-                #  import them to corresponding data libraries path if they exist
-                pass
-            elif needs_conversion(raw_file_path):
-                raw_library_dataset = establish_library_link(raw_file_path)
+                if is_converted(raw_file_path):
+                    mzml_path = os.path.relpath(get_mzml_path(raw_file_path), EXPORT_PATH_PREFIX)
+                    json_path = f"{mzml_path[:-5]}.json"
+                    # txt_path = f"{mzml_path[:-5]}.txt"
+                    mzml_ld = ensure_library_link(mzml_path, MZML_FILE_TYPE)
+                    json_ld = ensure_library_link(json_path, JSON_FILE_TYPE)
+                    # txt_ld = ensure_library_link(txt_path, TXT_FILE_TYPE)
+                else:
+                    log.debug(f"The following .RAW file {raw_file_path} is not converted, skipping.")
+            elif not is_converted(raw_file_path):
+                raw_library_dataset = ensure_library_link(raw_file_path)
                 log.info("Invoking a conversion workflow.")
                 run_conversion_workflow(raw_library_dataset, raw_file_path)
             else:
                 # if needs_metadata(raw_file_path):
                 # File is already converted, check whether it is linked.
-                # is_conversion_linked(raw_file_path)
                 # log.info("mzML file is already linked to the data library.")
                 pass
             sleep(random())  # Give Galaxy some time to cope since many calls above are async.
