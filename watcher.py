@@ -149,7 +149,7 @@ def main():
                 else:
                     log.debug(f"The following .RAW file {raw_file_path} is not converted, skipping.")
             elif not is_converted(raw_file_path):
-                raw_library_dataset = ensure_library_link(raw_file_path)
+                raw_library_dataset = ensure_library_link(raw_file_path, THERMO_FILE_TYPE)
                 log.info("Invoking a conversion workflow.")
                 run_conversion_workflow(raw_library_dataset, raw_file_path)
             else:
