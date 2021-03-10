@@ -128,6 +128,15 @@ def ensure_library_link(file_path, file_type):
     return library_dataset
 
 
+def ensure_converted_links(raw_file_path):
+    mzml_path = os.path.relpath(get_mzml_path(raw_file_path), EXPORT_PATH_PREFIX)
+    json_path = f"{mzml_path[:-5]}.json"
+    # txt_path = f"{mzml_path[:-5]}.txt"
+    ensure_library_link(mzml_path, MZML_FILE_TYPE)
+    ensure_library_link(json_path, JSON_FILE_TYPE)
+    # txt_ld = ensure_library_link(txt_path, TXT_FILE_TYPE)
+
+
 def main():
     with open(args.raw_list, "rt") as raw_list:
         for line in raw_list.readlines():
@@ -140,12 +149,7 @@ def main():
                 ensure_library_link(raw_file_path, THERMO_FILE_TYPE)
             elif args.import_results_only:
                 if is_converted(raw_file_path):
-                    mzml_path = os.path.relpath(get_mzml_path(raw_file_path), EXPORT_PATH_PREFIX)
-                    json_path = f"{mzml_path[:-5]}.json"
-                    # txt_path = f"{mzml_path[:-5]}.txt"
-                    mzml_ld = ensure_library_link(mzml_path, MZML_FILE_TYPE)
-                    json_ld = ensure_library_link(json_path, JSON_FILE_TYPE)
-                    # txt_ld = ensure_library_link(txt_path, TXT_FILE_TYPE)
+                    ensure_converted_links(raw_file_path)
                 else:
                     log.debug(f"The following .RAW file {raw_file_path} is not converted, skipping.")
             elif not is_converted(raw_file_path):
@@ -153,10 +157,8 @@ def main():
                 log.info("Invoking a conversion workflow.")
                 run_conversion_workflow(raw_library_dataset, raw_file_path)
             else:
+                ensure_converted_links(raw_file_path)
                 # if needs_metadata(raw_file_path):
-                # File is already converted, check whether it is linked.
-                # log.info("mzML file is already linked to the data library.")
-                pass
             sleep(random())  # Give Galaxy some time to cope since many calls above are async.
 
 
